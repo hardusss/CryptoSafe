@@ -129,23 +129,3 @@ class WalletAddressGenerator:
             return public_address, private_key
         except Exception as e:
             return str(e)
-
-
-if __name__ == '__main__':
-    wallet = WalletAddressGenerator()  # Instantiate the WalletAddressGenerator class
-
-    # Generate wallet addresses and private keys for different blockchains
-    btc_address, btc_private_key = wallet.btc()
-    trx_address, trx_private_key = wallet.trx()
-    ton_address, ton_private_key = wallet.ton()
-    sol_address, sol_private_key = wallet.sol()
-    eth_address, eth_private_key = wallet.eth()
-    bnb_address, bnb_private_key = wallet.bnb()
-
-    # Output the generated addresses and private keys
-    print(f"BTC Address: {btc_address} , Private Key: {btc_private_key}")
-    print(f"TRX Address: {trx_address} , Private Key: {trx_private_key}")
-    print(f"TON Address: {ton_address}, Private Key: {ton_private_key}")
-    print(f"SOL Address: {sol_address}, Private Key: {sol_private_key}")
-    print(f"ETH Address: {eth_address}, Private Key: {eth_private_key}")
-    print(f"BNB Address: {bnb_address}, Private Key: {bnb_private_key}")
