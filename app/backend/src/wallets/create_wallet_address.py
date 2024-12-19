@@ -1,3 +1,4 @@
+from cryptography.fernet import Fernet
 from bitcoinlib.wallets import Wallet, WalletError
 import uuid
 from tronpy.keys import PrivateKey
@@ -5,7 +6,6 @@ from tonsdk.contract.wallet import Wallets, WalletVersionEnum
 from solana.keypair import Keypair
 import base64
 from eth_account import Account
-from web3 import Web3
 
 
 class WalletAddressGenerator:
@@ -16,6 +16,37 @@ class WalletAddressGenerator:
     It provides methods to generate unique wallet addresses and private keys for each blockchain. In case of an error
     during wallet generation, an error message will be returned instead.
     """
+
+    def __init__(self, encryption_key: bytes = None):
+        """
+        Initializes the WalletAddressGenerator with an optional encryption key.
+
+        If no encryption key is provided, a new one is generated. The encryption key is used to encrypt and decrypt
+        private keys for secure storage.
+
+        :param encryption_key: A 32-byte encryption key for encrypting private keys. Defaults to None.
+        """
+        if encryption_key is None:
+            encryption_key = Fernet.generate_key()
+        self.cipher = Fernet(encryption_key)
+
+    def encrypt_private_key(self, private_key: str) -> str:
+        """
+        Encrypts a private key using the initialized encryption key.
+
+        :param private_key: The private key as a string.
+        :return: The encrypted private key as a string.
+        """
+        return self.cipher.encrypt(private_key.encode()).decode()
+
+    def decrypt_private_key(self, encrypted_key: str) -> str:
+        """
+        Decrypts an encrypted private key.
+
+        :param encrypted_key: The encrypted private key as a string.
+        :return: The decrypted private key as a string.
+        """
+        return self.cipher.decrypt(encrypted_key.encode()).decode()
 
     def btc(self) -> tuple[str, str] | str:
         """
@@ -33,7 +64,8 @@ class WalletAddressGenerator:
             wallet = Wallet.create(wallet_name)  # Create a new Bitcoin wallet
             wallet_address = wallet.get_key().address
             private_key = wallet.get_key().key_private
-            return str(wallet_address), str(private_key.hex())
+            encrypted_key = self.encrypt_private_key(private_key.hex())
+            return str(wallet_address), encrypted_key
         except WalletError as wallet_error:
             return str(wallet_error)
 
@@ -51,7 +83,8 @@ class WalletAddressGenerator:
         try:
             private_key = PrivateKey.random()  # Generate a random private key for Tron
             wallet_address = private_key.public_key.to_base58check_address()  # Convert public key to address
-            return str(wallet_address), str(private_key.hex())
+            encrypted_key = self.encrypt_private_key(private_key.hex())
+            return str(wallet_address), encrypted_key
         except Exception as e:
             return str(e)
 
@@ -69,7 +102,8 @@ class WalletAddressGenerator:
         try:
             # Create a TON wallet with version v3r2 and workchain 0
             mnemonics, pub_k, pri_k, wallet = Wallets.create(version=WalletVersionEnum.v3r2, workchain=0)
-            return str(wallet.address.to_string(True, True, False)), str(pri_k.hex())
+            encrypted_key = self.encrypt_private_key(pri_k.hex())
+            return str(wallet.address.to_string(True, True, False, True)), encrypted_key
         except Exception as e:
             return str(e)
 
@@ -88,7 +122,8 @@ class WalletAddressGenerator:
             keypair = Keypair.generate()  # Generate a new keypair for Solana
             public_key = keypair.public_key
             secret_key = base64.b64encode(keypair.secret_key).decode('utf-8')  # Encode the secret key in base64
-            return str(public_key), str(secret_key)
+            encrypted_key = self.encrypt_private_key(secret_key)
+            return str(public_key), encrypted_key
         except Exception as e:
             return str(e)
 
@@ -106,26 +141,31 @@ class WalletAddressGenerator:
             account = Account.create()  # Create a new Ethereum account
             public_address = account.address
             private_key = account.key.hex()
-            return public_address, private_key
+            encrypted_key = self.encrypt_private_key(private_key)
+            return public_address, encrypted_key
         except Exception as e:
             return str(e)
 
-    def bnb(self) -> tuple[str, str] | str:
-        """
-        Generates a Binance Smart Chain (BNB) wallet address and private key.
 
-        This method uses Web3 and connects to the Binance Smart Chain (BSC) network. It creates a new account,
-        returns the public address and private key, and returns the keys as hexadecimal strings. If any error occurs,
-        it will return the error message.
+if __name__ == '__main__':
+    w = WalletAddressGenerator()
+    import json
 
-        :return: A tuple containing the wallet address and private key as strings.
-                 Returns an error message string in case of failure.
-        """
-        try:
-            w3 = Web3(Web3.HTTPProvider("https://bsc-dataseed.binance.org/"))  # Initialize Web3 with BSC provider
-            account = w3.eth.account.create()  # Create a new account on Binance Smart Chain
-            public_address = account.address
-            private_key = account.key.hex()
-            return public_address, private_key
-        except Exception as e:
-            return str(e)
+    from functools import lru_cache
+
+
+    @lru_cache(maxsize=None)
+    async def ton_gen():
+        list_addresses = []
+
+        for i in range(1000):
+            address = w.ton()[0][:42]
+            list_addresses.append(address)
+            print(f"Ton №{i} Address gener", address)
+
+        with open("ton-addresses.json", "w") as f:
+            json.dump(list_addresses, f, indent=4)
+
+    import asyncio
+    asyncio.run(ton_gen())
+    
